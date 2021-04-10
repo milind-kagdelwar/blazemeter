@@ -1,0 +1,10 @@
+CredentialSchema:
+  newrelic:
+    key:
+      type: string
+      description: Your API Key Id to connect to the Blazemeter API with
+    secret:
+      type: string
+      description: Your API Key Secret to connect to the Blazemeter API with
+Cache:
+  newrelic: Symfony\Component\Cache\Adapter\FilesystemAdapter

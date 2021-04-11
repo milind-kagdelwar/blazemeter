@@ -9,10 +9,10 @@ use Drutiny\Driver\DrushRouter;
 
 /**
  * @Drutiny\Annotation\Target(
- *  name = "blazemter-master"
+ *  name = "blazemeter"
  * )
  */
-class MasterTarget extends DrushTarget {
+class BlazemeterTarget extends DrushTarget {
 
   protected $master;
 

@@ -1,5 +1,5 @@
 Target:
-  Drutiny\Blazemeter\MasterTarget
+  Drutiny\BlazeMeter\BlazemeterTarget
 CredentialSchema:
   blazemeter:
     key:

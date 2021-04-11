@@ -1,3 +1,5 @@
+Target:
+  Drutiny\Blazemeter\MasterTarget
 CredentialSchema:
   blazemeter:
     key:
@@ -6,5 +8,8 @@ CredentialSchema:
     secret:
       type: string
       description: Your API Key Secret to connect to the Blazemeter API with
+    account_id:
+      type: int
+      description: Your Account ID to connect to the Blazemeter API with
 Cache:
   blazemeter: Symfony\Component\Cache\Adapter\FilesystemAdapter

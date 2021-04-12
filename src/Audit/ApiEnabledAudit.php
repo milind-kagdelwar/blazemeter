@@ -3,6 +3,7 @@
 namespace Drutiny\BlazeMeter\Audit;
 
 use Drutiny\Annotation\Param;
+use Drutiny\BlazeMeter\Audit\ApiEnabledAuditTrait;
 use Drutiny\Sandbox\Sandbox;
 use Drutiny\Audit\AbstractAnalysis;
 use Drutiny\Credential\Manager;
@@ -18,17 +19,15 @@ use Drutiny\AuditValidationException;
  *  type = "array",
  *  default = {"summary"}
  * )
+ * @Param(
+ *  name = "sort",
+ *  description = "Sort by field",
+ *  type = "string",
+ *  default = "id"
+ * )
  */
-class BlazeMeter extends AbstractAnalysis {
-
-  protected function requireApiCredentials() {
-    return Manager::load('blazemeter') ? TRUE : FALSE;
-  }
-
-  protected function api() {
-    $creds = Manager::load('blazemeter');
-    return new Client($creds['key'], $creds['secret']);
-  }
+class ApiEnabledAudit extends AbstractAnalysis {
+  use ApiEnabledAuditTrait;
 
   /**
    * @inheritdoc
@@ -39,30 +38,47 @@ class BlazeMeter extends AbstractAnalysis {
     $host = strpos($uri, 'http') === 0 ? parse_url($uri, PHP_URL_HOST) : $uri;
     $sandbox->setParameter('host', $host);
     $report_type = $sandbox->getParameter('report-type');
+    $sort = $sandbox->getParameter('sort');
 
     if (!is_array($report_type)) {
       throw new AuditValidationException("Report Type parameter must be an array. " . ucwords(gettype($report_type)) . ' given.');
     }
+    $report_type = reset($report_type);
 
-    $options = [
-      'names[]' => 'Apdex',
-      'summarize' => TRUE,
-      'from' => $sandbox->getReportingPeriodStart()->format(\DateTime::RFC3339),
-      'to' => $sandbox->getReportingPeriodEnd()->format(\DateTime::RFC3339),
-    ];
+    // Check if we have workspace id.
+    $creds = Manager::load('blazemeter');
+    $workspace_id = $creds['workspace_id'];
+    if (empty($workspace_id)) {
+      $workspace = $this->getWorkspaces($creds['account_id']);
+      if ($workspace) {
+        $workspace = reset($workspace);
+        $workspace_id = $workspace['id'];
+      }
+    }
 
-    $query = http_build_query($options);
+    // Get master details, we will be fetching first master.
+    $master = $this->getLatestMaster($workspace_id, $creds['account_id']);
+    if ($master) {
+      $master = $master['id'];
+    }
+
+    $format = 'data';
+    if ($report_type === 'summary') {
+      $format = 'summary';
+    }
+
+    $query = http_build_query(['sort[]' => $sort]);
+
     try {
-      $response = $this->api()->request("GET", 'metrics/data.json?' . $query, $options);
+      $response = $this->api()->request("GET", "masters/{$master}/reports/{$report_type}/{$format}?{$query}");
     }
     catch (\Exception $exception) {
       throw new AuditResponseException($exception->getMessage());
     }
 
     if ($response) {
-      $apdex_values = $response['metric_data']['metrics'][0]['timeslices'][0]['values'];
-      $sandbox->setParameter('apdex_score', $apdex_values['score']);
-      $sandbox->setParameter('apdex_threshold', $apdex_values['threshold']);
+      $sandbox->setParameter('count', count($response['result']));
+      $sandbox->setParameter('results', $response['result']);
     }
   }
 

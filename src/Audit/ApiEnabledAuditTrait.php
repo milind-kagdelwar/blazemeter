@@ -2,84 +2,76 @@
 
 namespace Drutiny\BlazeMeter\Audit;
 
-use Drutiny\Annotation\Param;
-use Drutiny\BlazeMeter\Audit\ApiEnabledAuditTrait;
-use Drutiny\Sandbox\Sandbox;
-use Drutiny\Audit\AbstractAnalysis;
+use Drutiny\BlazeMeter\Client;
 use Drutiny\Credential\Manager;
-use Drutiny\Acquia\CloudApiDrushAdaptor;
-use Drutiny\Acquia\AcquiaTargetInterface;
-use Drutiny\AuditValidationException;
+use Drutiny\Container;
+use Drutiny\AuditResponse\AuditResponseException;
 
-/**
- * Ensure an environment has custom domains set.
- * @Param(
- *  name = "report-type",
- *  description = "one of summary, aggregatereport, errorsreport",
- *  type = "array",
- *  default = {"summary"}
- * )
- * @Param(
- *  name = "sort",
- *  description = "Sort by field",
- *  type = "string",
- *  default = "id"
- * )
- */
-class ApiEnabledAudit extends AbstractAnalysis {
-  use ApiEnabledAuditTrait;
+trait ApiEnabledAuditTrait {
 
-  /**
-   * @inheritdoc
-   */
-  public function gather(Sandbox $sandbox) {
+  public function requireApiCredentials()
+  {
+    return Manager::load('blazemeter') ? TRUE : FALSE;
+  }
 
-    $uri = $sandbox->getTarget()->uri();
-    $host = strpos($uri, 'http') === 0 ? parse_url($uri, PHP_URL_HOST) : $uri;
-    $sandbox->setParameter('host', $host);
-    $report_type = $sandbox->getParameter('report-type');
-    $sort = $sandbox->getParameter('sort');
-
-    if (!is_array($report_type)) {
-      throw new AuditValidationException("Report Type parameter must be an array. " . ucwords(gettype($report_type)) . ' given.');
-    }
-    $report_type = reset($report_type);
-
-    // Check if we have workspace id.
+  protected function api()
+  {
     $creds = Manager::load('blazemeter');
-    $workspace_id = $creds['workspace_id'];
-    if (empty($workspace_id)) {
-      $workspace = $this->getWorkspaces($creds['account_id']);
-      if ($workspace) {
-        $workspace = reset($workspace);
-        $workspace_id = $workspace['id'];
+    return new Client($creds['key'], $creds['secret']);
+  }
+
+  protected function getLatestMaster($workspace_id, $account_id)
+  {
+    $projects = $this->getProjects($workspace_id, $account_id);
+    if (!empty($projects)) {
+      $project = reset($projects);
+      $masters = $this->getMasters($workspace_id, $project['id']);
+      if (!empty($masters)) {
+        return reset($masters);
       }
     }
+    return FALSE;
+  }
 
-    // Get master details, we will be fetching first master.
-    $master = $this->getLatestMaster($workspace_id, $creds['account_id']);
-    if ($master) {
-      $master = $master['id'];
-    }
-
-    $format = 'data';
-    if ($report_type === 'summary') {
-      $format = 'summary';
-    }
-
-    $query = http_build_query(['sort[]' => $sort]);
-
+  protected function getWorkspaces($account_id)
+  {
     try {
-      $response = $this->api()->request("GET", "masters/{$master}/reports/{$report_type}/{$format}?{$query}");
+      $query = http_build_query(['accountId' => $account_id]);
+      $response = $this->api()->request("GET", 'workspaces?' . $query);
+      return $response['result'];
     }
     catch (\Exception $exception) {
       throw new AuditResponseException($exception->getMessage());
     }
+    return FALSE;
+  }
 
-    if ($response) {
-      $sandbox->setParameter('count', count($response['result']));
-      $sandbox->setParameter('results', $response['result']);
+  protected function getProjects($workspace_id, $account_id)
+  {
+    try {
+      $query = http_build_query(['accountId' => $account_id, 'workspaceId' => $workspace_id]);
+      $response = $this->api()->request("GET", 'projects?' . $query);
+      return $response['result'];
     }
+    catch (\Exception $exception) {
+      throw new AuditResponseException($exception->getMessage());
+    }
+    return FALSE;
+  }
+
+  protected function getMasters($workspace_id, $project_id)
+  {
+    try {
+      $query = http_build_query(['workspaceId' => $workspace_id, 'projectId' => $project_id]);
+      $response = $this->api()->request("GET", 'masters?' . $query);
+      return $response['result'];
+    }
+    catch (\Exception $exception) {
+      throw new AuditResponseException($exception->getMessage());
+    }
+    return FALSE;
   }
 
 }
+
+?>

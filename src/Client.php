@@ -13,7 +13,7 @@ class Client {
   /**
    * API base URL for Blazemeter.
    */
-  const API_BASE = 'https://a.blazemeter.com/api/v4/masters/';
+  const API_BASE = 'https://a.blazemeter.com/api/v4/';
 
   /**
    * API key for authentication.
@@ -40,8 +40,10 @@ class Client {
    *   The HTTP method to use.
    * @param string $endpoint
    *   The API endpoint to hit. The endpoint is prefixed with the API_BASE.
+   * @param string $type
+   *   Type of request.
    * @param array $payload
-   *
+   *   Payload to use.
    * @param bool $decodeBody
    *   Whether the body should be JSON decoded.
    * @return array|string
@@ -54,9 +56,9 @@ class Client {
     $time = 0;
 
     $client = new HttpClient([
-      'base_uri' => self::API_BASE . $this->account_id . '/',
+      'base_uri' => self::API_BASE,
       'headers' => [
-        'Authorization' => 'Basic ' . $this->key . $this->secret,
+        'Authorization' => 'Basic ' . base64_encode("$this->key:$this->secret"),
       ],
     ]);
 

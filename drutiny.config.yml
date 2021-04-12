@@ -1,5 +1,3 @@
-Target:
-  Drutiny\BlazeMeter\BlazemeterTarget
 CredentialSchema:
   blazemeter:
     key:
@@ -11,5 +9,8 @@ CredentialSchema:
     account_id:
       type: int
       description: Your Account ID to connect to the Blazemeter API with
+    workspace_id:
+      type: int
+      description: Your Workspace ID to connect to the Blazemeter API with (Optional). If not given it will pick latest one
 Cache:
   blazemeter: Symfony\Component\Cache\Adapter\FilesystemAdapter

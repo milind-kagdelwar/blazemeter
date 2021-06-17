@@ -56,18 +56,23 @@ class ApiEnabledAudit extends AbstractAnalysis {
       }
     }
 
-    // Get master details, we will be fetching first master.
-    $master = $this->getLatestMaster($workspace_id, $creds['account_id']);
-    if ($master) {
-      $master = $master['id'];
-    }
+    // Get reporting period duration.
+    $from = $sandbox->getReportingPeriodStart()->format('U');
+    $to = $sandbox->getReportingPeriodEnd()->format('U');
 
+    // Get master details, we will be fetching first master.
+    $master = $this->getLatestMaster($workspace_id, $creds['account_id'], $from, $to);
+    if (empty($master)) {
+      throw new \Exception("There is no data available for this reportting period.");
+      return;
+    }
+    $master = $master['id'];
     $format = 'data';
     if ($report_type === 'summary') {
       $format = 'summary';
     }
 
-    $query = http_build_query(['sort[]' => $sort]);
+    $query = http_build_query(['from' => $from, 'to' => $to, 'sort[]' => $sort]);
 
     try {
       $response = $this->api()->request("GET", "masters/{$master}/reports/{$report_type}/{$format}?{$query}");
@@ -77,8 +82,9 @@ class ApiEnabledAudit extends AbstractAnalysis {
     }
 
     if ($response) {
+      $this->parseResult($report_type, $response['result'], $sandbox);
       $sandbox->setParameter('count', count($response['result']));
-      $sandbox->setParameter('results', $response['result']);
+      $sandbox->setParameter('result', $response['result']);
     }
   }
 

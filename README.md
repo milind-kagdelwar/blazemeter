@@ -6,6 +6,6 @@ Requires API credentials which can be obtained from Blazemeter.
 ## Setup
 
 ```
-composer require drutiny/newrelic
+composer require drutiny/blazemeter
 ./vendor/bin/drutiny plugin:setup blazemeter
 ```

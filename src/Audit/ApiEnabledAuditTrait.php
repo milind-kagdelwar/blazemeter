@@ -20,12 +20,12 @@ trait ApiEnabledAuditTrait {
     return new Client($creds['key'], $creds['secret']);
   }
 
-  protected function getLatestMaster($workspace_id, $account_id)
+  protected function getLatestMaster($workspace_id, $account_id, $from, $to)
   {
     $projects = $this->getProjects($workspace_id, $account_id);
     if (!empty($projects)) {
       $project = reset($projects);
-      $masters = $this->getMasters($workspace_id, $project['id']);
+      $masters = $this->getMasters($workspace_id, $project['id'], $from, $to);
       if (!empty($masters)) {
         return reset($masters);
       }
@@ -59,10 +59,16 @@ trait ApiEnabledAuditTrait {
     return FALSE;
   }
 
-  protected function getMasters($workspace_id, $project_id)
+  protected function getMasters($workspace_id, $project_id, $from, $to)
   {
     try {
-      $query = http_build_query(['workspaceId' => $workspace_id, 'projectId' => $project_id]);
+      $params = [
+        'workspaceId' => $workspace_id,
+        'projectId' => $project_id,
+        'startTime' => $from,
+        'endTime' => $to,
+      ];
+      $query = http_build_query($params);
       $response = $this->api()->request("GET", 'masters?' . $query);
       return $response['result'];
     }
@@ -70,6 +76,41 @@ trait ApiEnabledAuditTrait {
       throw new AuditResponseException($exception->getMessage());
     }
     return FALSE;
+  }
+
+  public function parseResult($type, &$result, $sandbox)
+  {
+    switch ($type) {
+      case 'summary':
+        $summary = &$result['summary'][0];
+        $summary['hits_avg'] = round($summary['hits_avg'], 2);
+        $summary['avg'] = round($summary['avg'], 2);
+        break;
+
+      case 'aggregatereport':
+        $sort_type = $sandbox->getParameter('sort');
+        if (!empty($sort_type)) {
+          $sort_type = $sort_type[0];
+          $sort_column = array_column($result, $sort_type);
+          array_multisort($sort_column, SORT_DESC, $result);
+          foreach ($result as &$item) {
+            $item['avgResponseTime'] = round($item['avgResponseTime'], 2);
+          }
+        }
+        break;
+
+      case 'errorsreport':
+        foreach ($result as &$item) {
+          if (!empty($item['errors'])) {
+            foreach ($item['errors'] as &$value) {
+              $value['rc'] = !empty($value['rc']) ? $value['rc'] : "NA";
+              $value['rm'] = !empty($value['rm']) ? $value['rm'] : "NA";
+              $value['count'] = !empty($value['count']) ? $value['count'] : "NA";
+            }
+          }
+        }
+        break;
+    }
   }
 
 }

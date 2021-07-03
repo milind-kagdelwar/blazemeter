@@ -63,7 +63,7 @@ class ApiEnabledAudit extends AbstractAnalysis {
     // Get master details, we will be fetching first master.
     $master = $this->getLatestMaster($workspace_id, $creds['account_id'], $from, $to);
     if (empty($master)) {
-      throw new \Exception("There is no data available for this reportting period.");
+      throw new \Exception("There is no data available for this reporting period.");
       return;
     }
     $master = $master['id'];
